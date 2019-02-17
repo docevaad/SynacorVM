@@ -1,0 +1,8 @@
+[package]
+name = "synacorvm"
+version = "0.1.0"
+authors = ["David Tomcik <tomcik.david@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+byteorder="1"  
