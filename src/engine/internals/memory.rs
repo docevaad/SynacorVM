@@ -2,12 +2,14 @@ use super::svm_error::SVMError;
 use super::extensions::MemoryValue;
 use super::svm_constants::MEMORY_SIZE_MAX;
 
+pub type MemoryArray = [u16; MEMORY_SIZE_MAX];
+
 pub struct Memory {
-    memory: [u16; MEMORY_SIZE_MAX],
+    memory: MemoryArray,
 }
 
 impl Memory {
-    pub fn new(data: [u16; MEMORY_SIZE_MAX]) -> Memory {
+    pub fn new(data: MemoryArray) -> Memory {
         Memory {
             memory: data.clone(),
         }

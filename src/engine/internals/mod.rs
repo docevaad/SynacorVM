@@ -6,4 +6,4 @@ mod extensions;
 mod svm_error;
 mod opcode;
 mod registers;
-mod program_counter;
+mod instruction_pointer;

@@ -3,7 +3,7 @@ use std::io::{Read, Cursor};
 use byteorder::{LittleEndian, ReadBytesExt};
 use super::internals::svm_constants::MEMORY_SIZE_MAX as PROGRAM_SIZE_MAX;
 
-type ByteCodeArray = [u16; PROGRAM_SIZE_MAX];
+pub type ByteCodeArray = [u16; PROGRAM_SIZE_MAX];
 
 pub struct SVMProgram {
     bytecode_size: usize,

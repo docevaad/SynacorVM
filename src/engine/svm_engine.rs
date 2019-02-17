@@ -5,10 +5,14 @@ pub struct SVMEngine {
     state: SVMEngineState
 }
 
-// impl SVMEngine {
-//     pub fn new(program: SVMProgram) -> SVMEngine {
-//         SVMEngine {
-//             memory: Memory::new(program.get_bytecode()),
-//         }
-//     }
-// }
+impl SVMEngine {
+    pub fn new(program: SVMProgram) -> SVMEngine {
+        SVMEngine {
+            state: SVMEngineState::new(program.get_bytecode())
+        }
+    }
+
+    pub fn run() {
+
+    }
+}
