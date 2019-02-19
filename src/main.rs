@@ -10,5 +10,7 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let file = File::open(args[1].clone()).unwrap();
     let program = SVMProgram::new(&file);
-    program.print_program();
+    // program.print_program();
+    let mut engine = SVMEngine::new(program);
+    engine.run();
 }
