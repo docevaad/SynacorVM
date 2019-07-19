@@ -2,6 +2,8 @@ use super::extensions::RegisterValue;
 use super::svm_engine_state::SVMEngineState;
 use super::svm_error::SVMError;
 
+use std::io::{Read,Write};
+
 pub trait OpcodeValue {
     fn get_opcode(&self) -> Result<SVMOpCode, SVMError>;
 }
@@ -96,7 +98,7 @@ impl OpCode for SVMOpCode {
 
 //  Opcode Implementations as functions
 //  NOTE: Some of the names are inconsistent. This is due to them being keywords as well
-fn halt(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+fn halt(_engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
     println!("Halted.");
     std::process::exit(0);
 }
@@ -146,70 +148,219 @@ fn eq(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
 }
 
 fn gt(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let destination = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+
+    let potential_left_register = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+    let left = potential_left_register.unwrap_potential_register(&engine_state.registers)?;
+
+    let potential_right_register = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+    let right = potential_right_register.unwrap_potential_register(&engine_state.registers)?;
+
+    let mut value = 0;
+    if left > right {
+        value = 1;
+    }
+
+    set_register_or_memory(engine_state, destination, value)?;
+
     Ok(())
 }
 
 fn jmp(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let address = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    // println!("Jumping to {}", address);
+    engine_state.instruction_pointer.set_ip(address)?;
     Ok(())
 }
 
 fn jt(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let value = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    let address = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+
+    if value != 0 {
+        engine_state.instruction_pointer.set_ip(address)?;
+    }
+
     Ok(())
 }
 
 fn jf(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let value = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    let address = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+
+    if value == 0 {
+        engine_state.instruction_pointer.set_ip(address)?;
+    }
+
     Ok(())
 }
 
 fn add(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let destination = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+
+    let left = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+
+    let right = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+
+    let result = (left + right) % (std::i16::MAX as u16 + 1);
+
+    // print!("add: destination={}, left={}, right={}, result={}\n", destination, left, right, result);
+
+    engine_state.registers.set_register(destination, result)?;
+
     Ok(())
 }
 
 fn mult(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let destination = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+
+    let left = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+
+    let right = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    
+    // A little messy here but we don't want to overflow
+    let result = (left as u32 * right as u32) % (std::i16::MAX as u32 + 1);
+    engine_state.registers.set_register(destination, result as u16)?;
+
     Ok(())
 }
 
 fn modulus(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let destination = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+
+    let left = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+
+    let right = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    
+    let result = left % right;
+
+    engine_state.registers.set_register(destination, result)?;
+
     Ok(())
 }
 
 fn and(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let destination = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+
+    let left = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+
+    let right = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    
+    let result = left & right;
+
+    engine_state.registers.set_register(destination, result)?;
+
     Ok(())
 }
 
 fn or(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let destination = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+
+    let left = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+
+    let right = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    
+    let result = left | right;
+
+    engine_state.registers.set_register(destination, result)?;
+
     Ok(())
 }
 
 fn not(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let destination = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+
+    let value = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+
+    let result = !value & 0x7FFF;
+
+    engine_state.registers.set_register(destination, result)?;
+
     Ok(())
 }
 
 fn rmem(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let destination_reg = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+    let source_address = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    let value = engine_state.memory.load_memory(source_address)?;
+    engine_state.registers.set_register(destination_reg, value)?;
     Ok(())
 }
 
 fn wmem(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let destination_address = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    let value = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    engine_state.memory.store_memory(destination_address, value)?;
     Ok(())
 }
 
 fn call(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let jump_address =  engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    engine_state.stack.push(engine_state.instruction_pointer.get_ip());
+    engine_state.instruction_pointer.set_ip(jump_address)?;
     Ok(())
 }
 
 fn ret(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let return_address = match engine_state.stack.pop() {
+        Some(x) => Ok(x),
+        None => Err(SVMError::StackEmpty),
+    }?;
+
+    engine_state.instruction_pointer.set_ip(return_address)?;
+
     Ok(())
 }
 
 fn output(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
-    Ok(())
+    let out_char = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?
+        .unwrap_potential_register(&engine_state.registers)?;
+    let out_array : [u8; 1] = [out_char as u8; 1];
+    match std::io::stdout().write(&out_array) {
+        Ok(_) => { return Ok(()) },
+        Err(_) => { return Err(SVMError::WriteError); }
+    };
+
 }
 
 fn input(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+    let destination = engine_state.instruction_pointer.get_next_memory_value(&engine_state.memory)?;
+    let mut input_buffer : [u8; 1] = [0; 1];
+    match std::io::stdin().read_exact(&mut input_buffer) {
+        Ok(_) => {},
+        Err(_) => { return Err(SVMError::ReadError); }
+    };
+    if input_buffer[0] == 13   
+    {
+        // We need to consume carriage returns if we're on Windows
+        match std::io::stdin().read_exact(&mut input_buffer) {
+            Ok(_) => {},
+            Err(_) => { return Err(SVMError::ReadError); }
+        };
+    }
+    engine_state.registers.set_register(destination, input_buffer[0] as u16)?;
     Ok(())
 }
 
-fn noop(engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
+fn noop(_engine_state: &mut SVMEngineState) -> Result<(), SVMError> {
     Ok(())
 }
 

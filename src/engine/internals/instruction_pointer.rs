@@ -27,7 +27,8 @@ impl InstructionPointer {
     }
 
     pub fn get_next_memory_value(&mut self, memory: &Memory) -> Result<u16, SVMError> {
+        let nextValue = memory.load_memory(self.ip);
         self.ip += 1;
-        memory.load_memory(self.ip)
+        nextValue
     }
 }

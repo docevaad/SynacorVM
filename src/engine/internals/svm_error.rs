@@ -3,4 +3,6 @@ pub enum SVMError {
     InvalidRegister,
     InvalidOpCode,
     StackEmpty,
+    WriteError,
+    ReadError,
 }

@@ -18,6 +18,7 @@ impl Registers {
             Err(SVMError::InvalidRegister)
         } else {
             let register_index = register.get_register_index() as usize;
+            // print!("Get Register index={}, registerContents={}\n", register_index, self.registers[register_index]);
             Ok(self.registers[register_index])
         }
     }
@@ -27,6 +28,7 @@ impl Registers {
             Err(SVMError::InvalidRegister)
         } else {
             let register_index = register.get_register_index() as usize;
+            // print!("Register index={}\n", register_index);
             self.registers[register_index] = value;
             Ok(())
         }
